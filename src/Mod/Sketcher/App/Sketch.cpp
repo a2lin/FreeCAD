@@ -89,6 +89,7 @@ void Sketch::clear(void)
     ArcsOfHyperbola.clear();
     ArcsOfParabola.clear();
     BSplines.clear();
+    ParametersGeomIds.clear();
 
     // deleting the doubles allocated with new
     for (std::vector<double*>::iterator it = Parameters.begin(); it != Parameters.end(); ++it)
@@ -151,6 +152,7 @@ int Sketch::setUpSketch(const std::vector<Part::Geometry *> &GeoList,
         Base::Console().Log("Sketcher::setUpSketch()-T:%s\n",Base::TimeInfo::diffTime(start_time,end_time).c_str());
     }
 
+    updateFreeGeoms();
     return GCSsys.dofsNumber();
 }
 
@@ -161,8 +163,21 @@ int Sketch::resetSolver()
     GCSsys.initSolution(defaultSolverRedundant);
     GCSsys.getConflicting(Conflicting);
     GCSsys.getRedundant(Redundant);
-
+    updateFreeGeoms();
     return GCSsys.dofsNumber();
+}
+
+void Sketch::updateFreeGeoms() {
+    UnderConstrainedGeoms.clear();
+    const std::set<int> freeParams = GCSsys.freeParameters();
+    if (!freeParams.empty()) {
+        for (std::set<int>::const_iterator it = freeParams.begin(); it != freeParams.end(); it++) {
+            int freeParam = *it;
+            if (freeParam < ParametersGeomIds.size()) {
+                UnderConstrainedGeoms.insert(ParametersGeomIds[freeParam]);
+            }
+        }
+    }
 }
 
 const char* nameByType(Sketch::GeoType type)
@@ -196,51 +211,62 @@ const char* nameByType(Sketch::GeoType type)
 
 int Sketch::addGeometry(const Part::Geometry *geo, bool fixed)
 {
+    int geomId = -1;
+    int numParametersOrig = Parameters.size();
     if (geo->getTypeId() == GeomPoint::getClassTypeId()) { // add a point
         const GeomPoint *point = static_cast<const GeomPoint*>(geo);
         // create the definition struct for that geom
         if( point->Construction == false ) {
-            return addPoint(*point, fixed);
+            geomId = addPoint(*point, fixed);
         }
         else {
-            return addPoint(*point, true);
+            geomId = addPoint(*point, true);
         }
     } else if (geo->getTypeId() == GeomLineSegment::getClassTypeId()) { // add a line
         const GeomLineSegment *lineSeg = static_cast<const GeomLineSegment*>(geo);
         // create the definition struct for that geom
-        return addLineSegment(*lineSeg, fixed);
+        geomId = addLineSegment(*lineSeg, fixed);
     } else if (geo->getTypeId() == GeomCircle::getClassTypeId()) { // add a circle
         const GeomCircle *circle = static_cast<const GeomCircle*>(geo);
         // create the definition struct for that geom
-        return addCircle(*circle, fixed);
+        geomId = addCircle(*circle, fixed);
     } else if (geo->getTypeId() == GeomEllipse::getClassTypeId()) { // add a ellipse
         const GeomEllipse *ellipse = static_cast<const GeomEllipse*>(geo);
         // create the definition struct for that geom
-        return addEllipse(*ellipse, fixed);
+        geomId = addEllipse(*ellipse, fixed);
     } else if (geo->getTypeId() == GeomArcOfCircle::getClassTypeId()) { // add an arc
         const GeomArcOfCircle *aoc = static_cast<const GeomArcOfCircle*>(geo);
         // create the definition struct for that geom
-        return addArc(*aoc, fixed);
+        geomId = addArc(*aoc, fixed);
     } else if (geo->getTypeId() == GeomArcOfEllipse::getClassTypeId()) { // add an arc
         const GeomArcOfEllipse *aoe = static_cast<const GeomArcOfEllipse*>(geo);
         // create the definition struct for that geom
-        return addArcOfEllipse(*aoe, fixed);
+        geomId = addArcOfEllipse(*aoe, fixed);
     } else if (geo->getTypeId() == GeomArcOfHyperbola::getClassTypeId()) { // add an arc of hyperbola
         const GeomArcOfHyperbola *aoh = static_cast<const GeomArcOfHyperbola*>(geo);
         // create the definition struct for that geom
-        return addArcOfHyperbola(*aoh, fixed);
+        geomId = addArcOfHyperbola(*aoh, fixed);
     } else if (geo->getTypeId() == GeomArcOfParabola::getClassTypeId()) { // add an arc of parabola
         const GeomArcOfParabola *aop = static_cast<const GeomArcOfParabola*>(geo);
         // create the definition struct for that geom
-        return addArcOfParabola(*aop, fixed);
+        geomId = addArcOfParabola(*aop, fixed);
     } else if (geo->getTypeId() == GeomBSplineCurve::getClassTypeId()) { // add a bspline
         const GeomBSplineCurve *bsp = static_cast<const GeomBSplineCurve*>(geo);
         // create the definition struct for that geom
-        return addBSpline(*bsp, fixed);
+        geomId = addBSpline(*bsp, fixed);
     }
     else {
         throw Base::TypeError("Sketch::addGeometry(): Unknown or unsupported type added to a sketch");
     }
+    if (geomId != -1) {
+        int addedParameters = Parameters.size() - numParametersOrig;
+        if (addedParameters > 0) {
+            for (int i = 0; i < addedParameters; i++) {
+                ParametersGeomIds.push_back(geomId);
+            }
+        }
+    }
+    return geomId;
 }
 
 int Sketch::addGeometry(const std::vector<Part::Geometry *> &geo, bool fixed)

@@ -2477,7 +2477,9 @@ void ViewProviderSketch::updateColor(void)
     float x,y,z;
     
     int j=0; // vertexindex
-    
+  
+    // turn geoms to the constrained color as they become constrained. 
+    const std::set<int> underConstrainedGeoms = getSketchObject()->getSolvedSketch().getUnderConstrainedGeoms();
     for (int  i=0; i < CurvNum; i++) {
         int GeoId = edit->CurvIdToGeoId[i];
         // CurvId has several vertex a ssociated to 1 material
@@ -2486,6 +2488,10 @@ void ViewProviderSketch::updateColor(void)
 
         bool selected = (edit->SelCurvSet.find(GeoId) != edit->SelCurvSet.end());
         bool preselected = (edit->PreselectCurve == GeoId);
+
+        // sketch geom is fully constrained if 1. it has geometry and 2. the geom has no free parameters.
+        bool fullyConstrained = underConstrainedGeoms.find(GeoId) == underConstrainedGeoms.end() 
+            && getSketchObject()->Constraints.getSize() > 0;
 
         if (selected && preselected) {
             color[i] = PreselectSelectedColor;
@@ -2522,7 +2528,7 @@ void ViewProviderSketch::updateColor(void)
                 verts[j] = SbVec3f(x,y,zConstrLine);
             }
         }
-        else if (edit->FullyConstrained) {
+        else if (fullyConstrained) {
             color[i] = FullyConstrainedColor;
             for (int k=j; j<k+indexes; j++) {
                 verts[j].getValue(x,y,z);

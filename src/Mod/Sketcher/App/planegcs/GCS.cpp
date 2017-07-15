@@ -3594,6 +3594,19 @@ int System::diagnose(Algorithm alg)
             else
                 R = qrJT.matrixQR().topRows(constrNum)
                                 .triangularView<Eigen::Upper>();
+
+            // calculate unconstrained parameters (used in dof display).
+            if (rank < paramsNum) {
+                unconstrainedParameters.clear();
+                Eigen::FullPivHouseholderQR<Eigen::MatrixXd> qrJ;
+                qrJ.compute(J.topRows(count)); // Note that J is NOT transposed here
+                Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> indices = qrJ.colsPermutation().indices();
+                for (int i = 0; i < paramsNum - constrNum; i++) {
+                    unconstrainedParameters.insert(indices(paramsNum - i - 1));
+                }
+            } else {
+                unconstrainedParameters.clear();
+            }
         }
     }
 #ifdef EIGEN_SPARSEQR_COMPATIBLE
@@ -3616,6 +3629,23 @@ int System::diagnose(Algorithm alg)
             else
                 R = SqrJT.matrixR().topRows(constrNum)
                                     .triangularView<Eigen::Upper>();
+
+            // calculate unconstrained parameters (used in dof display).
+            if (rank < paramsNum) {
+                unconstrainedParameters.clear();
+                Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> > SqrJ;
+                SqrJ.compute(SJ.topRows(count)); // Note that SJ is NOT transposed here.
+                Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> indices = SqrJ.colsPermutation().indices();
+                std::vector<int> vs;
+                for (int i = 0; i < paramsNum ; i++) {
+                    vs.push_back(indices(i));
+                }
+                for (int i = 0; i < paramsNum - rank; i++) {
+                    unconstrainedParameters.insert(indices(paramsNum - i - 1));
+                }
+            } else {
+                unconstrainedParameters.clear();
+            }
         }
     }
 #endif
@@ -3838,6 +3868,8 @@ int System::diagnose(Algorithm alg)
                 dofs = paramsNum - constrNum;
                 return dofs;
             }
+        }
+        if (constrNum < rank) {
         }
 
         hasDiagnosis = true;

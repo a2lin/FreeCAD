@@ -334,6 +334,9 @@ public:
     /// Returns the size of the Geometry
     int getGeometrySize(void) const {return Geoms.size();}
 
+    // Return a list of free geometries
+    const std::set<int>& getUnderConstrainedGeoms(void) const {return UnderConstrainedGeoms;}
+
     enum GeoType {
         None    = 0,
         Point   = 1, // 1 Point(start), 2 Parameters(x,y)
@@ -430,9 +433,13 @@ protected:
 
 
 private:
+    // the geom id that owns respective parameter
+    std::vector<int> ParametersGeomIds;
+    std::set<int> UnderConstrainedGeoms;
 
     bool updateGeometry(void);
     bool updateNonDrivingConstraints(void);
+    void updateFreeGeoms(void);
 
     /// checks if the index bounds and converts negative indices to positive
     int checkGeoId(int geoId);

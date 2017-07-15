@@ -93,6 +93,7 @@ namespace GCS
         std::vector< MAP_pD_pD > reductionmaps;          // for simplification of equality constraints
 
         int dofs;
+        std::set<int> unconstrainedParameters; // set of unconstrained parameters
         std::set<Constraint *> redundant;
         VEC_I conflictingTags, redundantTags;
 
@@ -266,6 +267,7 @@ namespace GCS
 
         int diagnose(Algorithm alg=DogLeg);
         int dofsNumber() const { return hasDiagnosis ? dofs : -1; }
+        const std::set<int>& freeParameters() const { return unconstrainedParameters;}
         void getConflicting(VEC_I &conflictingOut) const
           { conflictingOut = hasDiagnosis ? conflictingTags : VEC_I(0); }
         void getRedundant(VEC_I &redundantOut) const
