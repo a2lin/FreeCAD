@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <limits>
+#include <boost/pending/disjoint_sets.hpp>
 
 #include "GCS.h"
 #include "qp_eq.h"
@@ -3633,15 +3634,43 @@ int System::diagnose(Algorithm alg)
             // calculate unconstrained parameters (used in dof display).
             if (rank < paramsNum) {
                 unconstrainedParameters.clear();
+
+                // build equality set
+                std::vector<int> dsRank(paramsNum); 
+                std::vector<int> dsParent(paramsNum);
+                std::set<int> unconstrainedCandidates;
+                boost::disjoint_sets<int*, int*> ds(&dsRank[0], &dsParent[0]);
+                for (int i = 0; i < paramsNum; i++) {
+                    ds.make_set(i);
+                }
+
+                for (std::vector<Constraint *>::iterator clistIterator = clist.begin();
+                        clistIterator < clist.end(); clistIterator++) {
+                    Constraint* constr = *clistIterator;
+                    if ((constr)->getTypeId() == Equal) {
+                        ConstraintEqual* cEqual = static_cast<ConstraintEqual *>(constr);
+                        int index1 = std::find(plist.begin(), plist.end(), cEqual->param1()) - plist.begin();
+                        int index2 = std::find(plist.begin(), plist.end(), cEqual->param2()) - plist.begin();
+                        if ((size_t) index1 < plist.size() && (size_t) index2 < plist.size()) {
+                            ds.union_set(index1, index2);
+                        }
+                    }
+                }
+
                 Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> > SqrJ;
                 SqrJ.compute(SJ.topRows(count)); // Note that SJ is NOT transposed here.
                 Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> indices = SqrJ.colsPermutation().indices();
-                std::vector<int> vs;
-                for (int i = 0; i < paramsNum ; i++) {
-                    vs.push_back(indices(i));
-                }
+
+
                 for (int i = 0; i < paramsNum - rank; i++) {
-                    unconstrainedParameters.insert(indices(paramsNum - i - 1));
+                    unconstrainedCandidates.insert(ds.find_set(indices(paramsNum - i - 1)));
+                }
+                std::vector<int> debugresult;
+                for (int i = 0; i < paramsNum; i++) {
+                    debugresult.push_back(ds.find_set(i));
+                    if (unconstrainedCandidates.find(ds.find_set(i)) != unconstrainedCandidates.end()) {
+                        unconstrainedParameters.insert(i);
+                    }
                 }
             } else {
                 unconstrainedParameters.clear();

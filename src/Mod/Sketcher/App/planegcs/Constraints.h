@@ -126,10 +126,9 @@ namespace GCS
     // Equal
     class ConstraintEqual : public Constraint
     {
-    private:
+    public:
         inline double* param1() { return pvec[0]; }
         inline double* param2() { return pvec[1]; }
-    public:
         ConstraintEqual(double *p1, double *p2);
         virtual ConstraintType getTypeId();
         virtual void rescale(double coef=1.);
